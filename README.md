@@ -1,2 +1,3 @@
-# amahi-friending-server
-Amahi Friending Server
+# Amahi Friending Server
+
+Under development
