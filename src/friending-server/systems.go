@@ -3,8 +3,8 @@ package main
 // System contains the info for a specific HDA.
 type System struct {
 	BaseModel
-	AmahiUserID uint
-	ApiKey      string `gorm:"unique"`
+	AmahiUserID uint   `gorm:"not null"`
+	ApiKey      string `gorm:"unique;not null"`
 	Frs         []FriendRequest
 	Fus         []FriendUser
 }
@@ -14,6 +14,9 @@ func getSystem(apiKey string) (sys *System) {
 	db, err := getDb()
 	defer db.Close()
 	handle(err)
-	db.Where("api_key = ?", apiKey).First(sys)
+	sys = new(System)
+	if db.Where("api_key = ?", apiKey).First(sys).RecordNotFound() {
+		return nil
+	}
 	return
 }

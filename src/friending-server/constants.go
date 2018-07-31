@@ -1,4 +1,4 @@
 package main
 
 const ApiKeyHeader = "API-Key"
-const DbName = "main.db"
+const DbCreds = "root@/amahi?parseTime=true"

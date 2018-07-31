@@ -21,12 +21,13 @@ const (
 
 type FriendRequest struct {
 	BaseModel
-	Status          RequestStatus `gorm:"default:0"`
-	Email           string
-	Pin             string `json:"-"`
-	InviteToken     string `gorm:"unique" json:"-"`
-	SystemID        uint   `json:"-"`
-	LastRequestedAt time.Time
+	Status          RequestStatus `gorm:"default:0" json:"status"`
+	AmahiUserID     uint          `gorm:"not null" json:"-"`
+	Pin             string        `gorm:"not null" json:"-"`
+	InviteToken     string        `gorm:"unique;not null" json:"-"`
+	SystemID        uint          `gorm:"not null" json:"-"`
+	AmahiUser       AmahiUser     `json:"amahi_user"`
+	LastRequestedAt time.Time     `json:"last_requested_at"`
 }
 
 type NewFR struct {
@@ -47,14 +48,6 @@ func (nfr *NewFR) OK() error {
 	if len(nfr.Pin) == 0 {
 		return ErrMissingField("pin")
 	}
-
-	db, err := getDb()
-	defer db.Close()
-	handle(err)
-	var user AmahiUser
-	if db.Where("email = ?", nfr.Email).Take(&user).RecordNotFound() {
-		return errors.New("no such user exists")
-	}
 	return nil
 }
 
@@ -71,7 +64,7 @@ func getFRs(w http.ResponseWriter, r *http.Request) {
 	system := checkApiKeyHeader(w, r)
 	if system != nil {
 		var reqs []FriendRequest
-		db.Model(&system).Related(&reqs)
+		db.Debug().Model(&system).Preload("amahi_user").Related(&reqs)
 		respond(w, http.StatusOK, reqs)
 	}
 }
@@ -87,21 +80,35 @@ func newFR(w http.ResponseWriter, r *http.Request) {
 	var nfr NewFR
 	if err := decode(r, &nfr); err != nil {
 		respond(w, http.StatusBadRequest, err)
+		return
+	}
+
+	// open db connection
+	db, err := getDb()
+	defer db.Close()
+	handle(err)
+
+	// validate friend's email
+	user := new(AmahiUser)
+	if db.Where("email = ?", nfr.Email).Take(user).RecordNotFound() {
+		respond(w, http.StatusBadRequest, errors.New("no such user exists"))
+		return
 	}
 
 	// set pin, email, invite token and system id
-	var fr FriendRequest
+	fr := new(FriendRequest)
 	fr.Pin = nfr.Pin
-	fr.Email = nfr.Email
+	fr.AmahiUserID = user.ID
 	fr.InviteToken = tokenGenerator()
 	fr.SystemID = system.ID
 	fr.sendEmailNotification()
 
 	// save new entry into database
-	db, err := getDb()
-	defer db.Close()
-	handle(err)
-	db.Create(fr)
+	if rowsAffected := db.Create(fr).RowsAffected; rowsAffected > 0 {
+		respond(w, http.StatusCreated, "created")
+	} else {
+		respond(w, http.StatusInternalServerError, db.Error)
+	}
 }
 
 func removeFR(w http.ResponseWriter, r *http.Request) {

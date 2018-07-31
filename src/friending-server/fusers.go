@@ -4,12 +4,14 @@ import (
 	"net/http"
 	"github.com/gorilla/mux"
 	"strconv"
+	"log"
+	"errors"
 )
 
 type FriendUser struct {
 	BaseModel
-	SystemID    uint
-	AmahiUserID uint
+	SystemID    uint `gorm:"not null"`
+	AmahiUserID uint `gorm:"not null"`
 }
 
 func getFUs(w http.ResponseWriter, r *http.Request) {
@@ -20,13 +22,12 @@ func getFUs(w http.ResponseWriter, r *http.Request) {
 	system := checkApiKeyHeader(w, r)
 	if system != nil {
 		var users []AmahiUser
-		/*rows, err := db.Raw("SELECT * FROM amahi_users WHERE name = ?", 3).Rows()
-		defer rows.Close()
-		handle(err)
-		for rows.Next() {
-			rows.Scan(&name, &age, &email)
-		}*/
-		db.Debug().Model(&FriendUser{SystemID: system.ID}).Related(&users)
+		if err = db.Joins("JOIN friend_users as fu on fu.amahi_user_id = amahi_users.id").
+			Where("fu.system_id = ?", system.ID).Find(&users).Error; err != nil {
+			log.Fatal(err)
+			respond(w, http.StatusInternalServerError, err)
+			return
+		}
 		respond(w, http.StatusOK, users)
 	}
 }
@@ -45,9 +46,10 @@ func removeFU(w http.ResponseWriter, r *http.Request) {
 	db, err := getDb()
 	defer db.Close()
 	handle(err)
-	if db.Where("user_id = ? AND system_id = ?", userId, system.ID).Delete(&FriendRequest{}).RecordNotFound() {
+	if rowsAffected := db.Debug().Where("amahi_user_id = ? AND system_id = ?", userId, system.ID).Delete(&FriendRequest{}).RowsAffected;
+	 rowsAffected > 0 {
 		respond(w, http.StatusOK, "deleted")
 	} else {
-		respond(w, http.StatusNotFound, "not found")
+		respond(w, http.StatusNotFound, errors.New("not found"))
 	}
 }
