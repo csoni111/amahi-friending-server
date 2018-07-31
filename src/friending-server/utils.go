@@ -6,7 +6,15 @@ import (
 	"net/http"
 	"encoding/json"
 	"log"
+	"time"
+	"errors"
 )
+
+type BaseModel struct {
+	ID        uint      `gorm:"primary_key; auto_increment"`
+	CreatedAt time.Time `json:"-"`
+	UpdatedAt time.Time `json:"-"`
+}
 
 // ok represents types capable of validating
 // themselves.
@@ -17,6 +25,7 @@ type ok interface {
 // common error types
 // missing field error in api calls
 type ErrMissingField string
+
 func (e ErrMissingField) Error() string {
 	return string(e) + " is required"
 }
@@ -57,7 +66,7 @@ func checkApiKeyHeader(w http.ResponseWriter, r *http.Request) (sys *System) {
 	sys = getSystem(apiKey)
 	// if user is nil, respond with 401 Unauthorized
 	if sys == nil {
-		http.Error(w, "Authorization Failed", http.StatusUnauthorized)
+		respond(w, http.StatusUnauthorized, errors.New("authorization failed"))
 	}
 	return
 }

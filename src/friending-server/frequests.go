@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"crypto/rand"
+	"github.com/gorilla/mux"
+	"strconv"
 )
 
 type RequestStatus int
@@ -21,9 +23,9 @@ type FriendRequest struct {
 	BaseModel
 	Status          RequestStatus `gorm:"default:0"`
 	Email           string
-	Pin             string
-	InviteToken     string `gorm:"unique"`
-	SystemID        uint
+	Pin             string `json:"-"`
+	InviteToken     string `gorm:"unique" json:"-"`
+	SystemID        uint   `json:"-"`
 	LastRequestedAt time.Time
 }
 
@@ -56,6 +58,11 @@ func (nfr *NewFR) OK() error {
 	return nil
 }
 
+func (fr *FriendRequest) sendEmailNotification() {
+	fr.LastRequestedAt = time.Now()
+	// TODO send email to friend specifying his pin
+}
+
 func getFRs(w http.ResponseWriter, r *http.Request) {
 	db, err := getDb()
 	defer db.Close()
@@ -72,6 +79,9 @@ func getFRs(w http.ResponseWriter, r *http.Request) {
 func newFR(w http.ResponseWriter, r *http.Request) {
 	// validate ApiKey from headers
 	system := checkApiKeyHeader(w, r)
+	if system == nil {
+		return
+	}
 
 	// validate post data
 	var nfr NewFR
@@ -85,6 +95,7 @@ func newFR(w http.ResponseWriter, r *http.Request) {
 	fr.Email = nfr.Email
 	fr.InviteToken = tokenGenerator()
 	fr.SystemID = system.ID
+	fr.sendEmailNotification()
 
 	// save new entry into database
 	db, err := getDb()
@@ -94,9 +105,48 @@ func newFR(w http.ResponseWriter, r *http.Request) {
 }
 
 func removeFR(w http.ResponseWriter, r *http.Request) {
+	// validate ApiKey from headers
+	system := checkApiKeyHeader(w, r)
+	if system == nil {
+		return
+	}
 
+	// get request id from url vars
+	reqId, err := strconv.Atoi(mux.Vars(r)["id"])
+
+	// attempt to delete and send response
+	db, err := getDb()
+	defer db.Close()
+	handle(err)
+	if db.Where("id = ? AND system_id = ?", reqId, system.ID).Delete(&FriendRequest{}).RecordNotFound() {
+		respond(w, http.StatusOK, "deleted")
+	} else {
+		respond(w, http.StatusNotFound, "not found")
+	}
 }
 
 func resendFR(w http.ResponseWriter, r *http.Request) {
+	// validate ApiKey from headers
+	system := checkApiKeyHeader(w, r)
+	if system == nil {
+		return
+	}
+
+	// get request id from url vars
+	reqId, err := strconv.Atoi(mux.Vars(r)["id"])
+
+	// resend email notification
+	db, err := getDb()
+	defer db.Close()
+	handle(err)
+	var fr FriendRequest
+	if db.Where("id = ? AND system_id = ?", reqId, system.ID).First(&fr).RecordNotFound() {
+		fr.InviteToken = tokenGenerator()
+		fr.sendEmailNotification()
+		db.Save(&fr)
+		respond(w, http.StatusOK, "request resent")
+	} else {
+		respond(w, http.StatusNotFound, "not found")
+	}
 
 }

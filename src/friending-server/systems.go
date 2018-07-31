@@ -5,9 +5,8 @@ type System struct {
 	BaseModel
 	AmahiUserID uint
 	ApiKey      string `gorm:"unique"`
-	FRs         []FriendRequest
-	FUs         []FriendUser
-	// other fields can be added
+	Frs         []FriendRequest
+	Fus         []FriendUser
 }
 
 // Get system for a given api key from db
