@@ -3,12 +3,42 @@ package main
 import (
 	"github.com/gorilla/mux"
 	"net/http"
+	"time"
+	"gopkg.in/matryer/respond.v1"
+	"log"
 )
 
+type BaseModel struct {
+	ID        uint `gorm:"primary_key; auto_increment"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func handle(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
 func main() {
+
+	opts := &respond.Options{
+		Before: func(w http.ResponseWriter, r *http.Request,
+			status int, data interface{}) (int, interface{}) {
+			if err, ok := data.(error); ok {
+				return status, map[string]interface{}{"error": err.Error()}
+			}
+			return status, data
+		},
+		After: func(w http.ResponseWriter, r *http.Request,
+			status int, data interface{}) {
+			log.Println("->", status, data)
+		},
+	}
+
 	router := mux.NewRouter()
 	apiRouter := router.PathPrefix("/api/frnd/").Subrouter()
-	apiRouter.HandleFunc("requests", getFRs).Methods("GET")
+	apiRouter.Handle("requests", getFRs).Methods("GET")
 	apiRouter.HandleFunc("users", getFUs).Methods("GET")
 	apiRouter.HandleFunc("new", newFR).Methods("POST")
 	apiRouter.HandleFunc("request/{id:[0-9]+}", removeFR).Methods("DELETE")
@@ -21,28 +51,4 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func getFUs(w http.ResponseWriter, r *http.Request) {
-
-}
-
-func getFRs(w http.ResponseWriter, r *http.Request) {
-
-}
-
-func newFR(w http.ResponseWriter, r *http.Request) {
-
-}
-
-func removeFR(w http.ResponseWriter, r *http.Request) {
-
-}
-
-func removeFU(w http.ResponseWriter, r *http.Request) {
-
-}
-
-func resendFR(w http.ResponseWriter, r *http.Request) {
-
 }
