@@ -10,8 +10,9 @@ import (
 
 type FriendUser struct {
 	BaseModel
-	SystemID    uint `gorm:"not null"`
-	AmahiUserID uint `gorm:"not null"`
+	SystemID    uint      `gorm:"not null" json:"-"`
+	AmahiUserID uint      `gorm:"not null" json:"-"`
+	AmahiUser   AmahiUser `json:"amahi_user"`
 }
 
 func getFUs(w http.ResponseWriter, r *http.Request) {
@@ -21,9 +22,10 @@ func getFUs(w http.ResponseWriter, r *http.Request) {
 
 	system := checkApiKeyHeader(w, r)
 	if system != nil {
-		var users []AmahiUser
-		if err = db.Joins("JOIN friend_users as fu on fu.amahi_user_id = amahi_users.id").
-			Where("fu.system_id = ?", system.ID).Find(&users).Error; err != nil {
+		var users []FriendUser
+		if err = db.Debug().Joins("JOIN amahi_users as au on au.id = friend_users.amahi_user_id").
+			Where("friend_users.system_id = ?", system.ID).Preload("AmahiUser").
+			Find(&users).Error; err != nil {
 			log.Fatal(err)
 			respond(w, http.StatusInternalServerError, err)
 			return
@@ -46,8 +48,9 @@ func removeFU(w http.ResponseWriter, r *http.Request) {
 	db, err := getDb()
 	defer db.Close()
 	handle(err)
-	if rowsAffected := db.Debug().Where("amahi_user_id = ? AND system_id = ?", userId, system.ID).Delete(&FriendRequest{}).RowsAffected;
-	 rowsAffected > 0 {
+	if rowsAffected := db.Debug().Where("amahi_user_id = ? AND system_id = ?", userId, system.ID).
+		Delete(&FriendRequest{}).RowsAffected;
+		rowsAffected > 0 {
 		respond(w, http.StatusOK, "deleted")
 	} else {
 		respond(w, http.StatusNotFound, errors.New("not found"))

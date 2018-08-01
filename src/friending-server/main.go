@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/gorilla/mux"
 	"net/http"
+	"time"
 )
 
 func handle(err error) {
@@ -52,7 +53,13 @@ func migrateDb() {
 
 		// insert sample data
 		db.Create(&AmahiUser{Email: "abc@temp.com"})
+		db.Create(&AmahiUser{Email: "bcd@temp.com"})
+		db.Create(&AmahiUser{Email: "cde@temp.com"})
 		db.Create(&System{AmahiUserID: 1, ApiKey: "abcdef"})
+		db.Create(&FriendRequest{AmahiUserID: 1, Pin: "1234", InviteToken: tokenGenerator(),
+			SystemID: 1, LastRequestedAt: time.Now(), Status: Accepted})
+		db.Create(&FriendUser{AmahiUserID: 1, SystemID: 1})
+
 	}
 
 }
