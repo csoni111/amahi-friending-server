@@ -64,7 +64,7 @@ func getFRs(w http.ResponseWriter, r *http.Request) {
 	system := checkApiKeyHeader(w, r)
 	if system != nil {
 		var reqs []FriendRequest
-		db.Debug().Model(&system).Preload("amahi_user").Related(&reqs)
+		db.Model(&system).Preload("AmahiUser").Related(&reqs)
 		respond(w, http.StatusOK, reqs)
 	}
 }
@@ -94,6 +94,8 @@ func newFR(w http.ResponseWriter, r *http.Request) {
 		respond(w, http.StatusBadRequest, errors.New("no such user exists"))
 		return
 	}
+
+	// TODO check if request for given friend already exists
 
 	// set pin, email, invite token and system id
 	fr := new(FriendRequest)
@@ -125,10 +127,11 @@ func removeFR(w http.ResponseWriter, r *http.Request) {
 	db, err := getDb()
 	defer db.Close()
 	handle(err)
-	if db.Where("id = ? AND system_id = ?", reqId, system.ID).Delete(&FriendRequest{}).RecordNotFound() {
+	if rowsAffected := db.Where("id = ? AND system_id = ?", reqId, system.ID).Delete(&FriendRequest{}).
+		RowsAffected; rowsAffected > 0 {
 		respond(w, http.StatusOK, "deleted")
 	} else {
-		respond(w, http.StatusNotFound, "not found")
+		respond(w, http.StatusNotFound, errors.New("not found"))
 	}
 }
 
@@ -148,12 +151,12 @@ func resendFR(w http.ResponseWriter, r *http.Request) {
 	handle(err)
 	var fr FriendRequest
 	if db.Where("id = ? AND system_id = ?", reqId, system.ID).First(&fr).RecordNotFound() {
+		respond(w, http.StatusNotFound, "not found")
+	} else {
 		fr.InviteToken = tokenGenerator()
 		fr.sendEmailNotification()
 		db.Save(&fr)
 		respond(w, http.StatusOK, "request resent")
-	} else {
-		respond(w, http.StatusNotFound, "not found")
 	}
 
 }
