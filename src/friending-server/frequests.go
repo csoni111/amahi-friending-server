@@ -26,7 +26,7 @@ type FriendRequest struct {
 	Pin             string        `gorm:"not null" json:"-"`
 	InviteToken     string        `gorm:"unique;not null" json:"-"`
 	SystemID        uint          `gorm:"not null" json:"-"`
-	AmahiUser       AmahiUser     `json:"amahi_user"`
+	AmahiUser       *AmahiUser    `json:"amahi_user"`
 	LastRequestedAt time.Time     `json:"last_requested_at"`
 }
 
@@ -100,14 +100,14 @@ func newFR(w http.ResponseWriter, r *http.Request) {
 	// set pin, email, invite token and system id
 	fr := new(FriendRequest)
 	fr.Pin = nfr.Pin
-	fr.AmahiUserID = user.ID
+	fr.AmahiUser = user
 	fr.InviteToken = tokenGenerator()
 	fr.SystemID = system.ID
 	fr.sendEmailNotification()
 
 	// save new entry into database
 	if rowsAffected := db.Create(fr).RowsAffected; rowsAffected > 0 {
-		respond(w, http.StatusCreated, "created")
+		respond(w, http.StatusCreated, fr)
 	} else {
 		respond(w, http.StatusInternalServerError, db.Error)
 	}

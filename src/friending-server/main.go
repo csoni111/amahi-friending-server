@@ -23,9 +23,7 @@ func main() {
 	apiRouter.HandleFunc("/user/{id:[0-9]+}", removeFU).Methods("DELETE")
 	apiRouter.HandleFunc("/request/{id:[0-9]+}/resend", resendFR).Methods("PUT")
 
-	server := new(http.Server)
-	server.Handler = router
-	err := server.ListenAndServe()
+	err := http.ListenAndServe(":8877", router)
 	handle(err)
 }
 
