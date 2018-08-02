@@ -16,6 +16,11 @@ type BaseModel struct {
 	UpdatedAt time.Time `json:"-"`
 }
 
+type HTTPError struct {
+	Code    int    `json:"code" example:"400"`
+	Message string `json:"message" example:"bad request"`
+}
+
 // ok represents types capable of validating themselves.
 type ok interface {
 	OK() error
@@ -42,9 +47,9 @@ func decode(r *http.Request, v ok) error {
 func respond(w http.ResponseWriter, status int, data interface{}) {
 	msg := data
 	if err, ok := data.(error); ok {
-		msg = map[string]interface{}{"error": err.Error()}
+		msg = HTTPError{Code: status, Message: err.Error()}
 	} else if str, ok := data.(string); ok {
-		msg = map[string]interface{}{"data": str}
+		msg = map[string]interface{}{"code": status, "message": str}
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
