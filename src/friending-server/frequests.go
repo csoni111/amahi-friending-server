@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"github.com/gorilla/mux"
 	"strconv"
+	"encoding/json"
 )
 
 type RequestStatus int
@@ -18,6 +19,15 @@ const (
 	Accepted
 	Rejected
 )
+
+func (e *RequestStatus) MarshalJSON() ([]byte, error) {
+	value, ok := map[RequestStatus]string{
+		Active: "Active", Expired: "Expired", Accepted: "Accepted", Rejected: "Rejected"}[*e]
+	if !ok {
+		return nil, errors.New("invalid status value")
+	}
+	return json.Marshal(value)
+}
 
 type FriendRequest struct {
 	BaseModel
