@@ -4,6 +4,8 @@ import (
 	"github.com/gorilla/mux"
 	"net/http"
 	"time"
+	"fmt"
+	"log"
 )
 
 func handle(err error) {
@@ -23,7 +25,8 @@ func main() {
 	apiRouter.HandleFunc("/user/{id:[0-9]+}", removeFU).Methods("DELETE")
 	apiRouter.HandleFunc("/request/{id:[0-9]+}/resend", resendFR).Methods("PUT")
 
-	err := http.ListenAndServe(":8877", router)
+	log.Printf("Starting server on %d", Port)
+	err := http.ListenAndServe(fmt.Sprintf(":%d", Port), router)
 	handle(err)
 }
 

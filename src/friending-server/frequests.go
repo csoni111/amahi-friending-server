@@ -32,10 +32,10 @@ func (e *RequestStatus) MarshalJSON() ([]byte, error) {
 type FriendRequest struct {
 	BaseModel
 	Status          RequestStatus `gorm:"default:0" json:"status"`
-	AmahiUserID     uint          `gorm:"not null" json:"-"`
+	AmahiUserID     uint          `gorm:"not null;unique_index:idx_sys_user" json:"-"`
 	Pin             string        `gorm:"not null" json:"-"`
 	InviteToken     string        `gorm:"unique;not null" json:"-"`
-	SystemID        uint          `gorm:"not null" json:"-"`
+	SystemID        uint          `gorm:"not null;unique_index:idx_sys_user" json:"-"`
 	AmahiUser       *AmahiUser    `json:"amahi_user"`
 	LastRequestedAt time.Time     `json:"last_requested_at"`
 }
@@ -105,21 +105,24 @@ func newFR(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO check if request for given friend already exists
-
-	// set pin, email, invite token and system id
+	// check if a friend request for given user already exists
 	fr := new(FriendRequest)
-	fr.Pin = nfr.Pin
-	fr.AmahiUser = user
-	fr.InviteToken = tokenGenerator()
-	fr.SystemID = system.ID
-	fr.sendEmailNotification()
+	if db.Where("amahi_user_id = ? AND system_id = ?", user.ID, system.ID).First(&fr).RecordNotFound() {
+		// set pin, user, invite token and system id
+		fr.Pin = nfr.Pin
+		fr.AmahiUser = user
+		fr.InviteToken = tokenGenerator()
+		fr.SystemID = system.ID
+		fr.sendEmailNotification()
 
-	// save new entry into database
-	if rowsAffected := db.Create(fr).RowsAffected; rowsAffected > 0 {
-		respond(w, http.StatusCreated, fr)
+		// save new entry into database
+		if rowsAffected := db.Create(fr).RowsAffected; rowsAffected > 0 {
+			respond(w, http.StatusCreated, fr)
+		} else {
+			respond(w, http.StatusInternalServerError, db.Error)
+		}
 	} else {
-		respond(w, http.StatusInternalServerError, db.Error)
+		respond(w, http.StatusBadRequest, "request already exists for user")
 	}
 }
 
