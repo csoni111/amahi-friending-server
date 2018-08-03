@@ -142,7 +142,7 @@ func removeFR(w http.ResponseWriter, r *http.Request) {
 	handle(err)
 	if rowsAffected := db.Where("id = ? AND system_id = ?", reqId, system.ID).Delete(&FriendRequest{}).
 		RowsAffected; rowsAffected > 0 {
-		respond(w, http.StatusOK, "deleted")
+		respond(w, http.StatusOK, "deleted successfully")
 	} else {
 		respond(w, http.StatusNotFound, errors.New("not found"))
 	}
