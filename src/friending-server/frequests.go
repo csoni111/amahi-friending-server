@@ -9,6 +9,8 @@ import (
 	"github.com/gorilla/mux"
 	"strconv"
 	"encoding/json"
+	"github.com/jinzhu/gorm"
+	"log"
 )
 
 type RequestStatus int
@@ -64,6 +66,8 @@ func (nfr *NewFR) OK() error {
 func (fr *FriendRequest) sendEmailNotification() {
 	fr.LastRequestedAt = time.Now()
 	// TODO send email to friend specifying his pin
+	log.Printf("sending email invite to %s with pin: %s and invite token: %s",
+		fr.AmahiUser.Email, fr.Pin, fr.InviteToken)
 }
 
 func getFRs(w http.ResponseWriter, r *http.Request) {
@@ -156,13 +160,13 @@ func resendFR(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// get request id from url vars
-	reqId, err := strconv.Atoi(mux.Vars(r)["id"])
+	reqId, _ := strconv.Atoi(mux.Vars(r)["id"])
 
 	// resend email notification
 	db, err := getDb()
 	defer db.Close()
 	handle(err)
-	var fr FriendRequest
+	fr := new(FriendRequest)
 	if db.Where("id = ? AND system_id = ?", reqId, system.ID).First(&fr).RecordNotFound() {
 		respond(w, http.StatusNotFound, "not found")
 	} else {
@@ -172,4 +176,42 @@ func resendFR(w http.ResponseWriter, r *http.Request) {
 		respond(w, http.StatusOK, "request resent")
 	}
 
+}
+
+func getRequestFromToken(w http.ResponseWriter, r *http.Request, db *gorm.DB) *FriendRequest {
+	// get invite token from url vars
+	token := mux.Vars(r)["token"]
+
+	fr := new(FriendRequest)
+	if db.Where("invite_token = ? AND status = ?", token, Active).First(&fr).RecordNotFound() {
+		respond(w, http.StatusBadRequest, "invalid token")
+		return nil
+	} else {
+		return fr
+	}
+}
+
+func acceptRequest(w http.ResponseWriter, r *http.Request) {
+	db, err := getDb()
+	defer db.Close()
+	handle(err)
+	// accept the request and create new friend user for given HDA
+	fr := getRequestFromToken(w, r, db)
+	if fr != nil {
+		db.Model(&fr).Update("status", Accepted)
+		db.Create(&FriendUser{AmahiUserID: fr.AmahiUserID, SystemID: fr.SystemID})
+		respond(w, http.StatusOK, "request accepted")
+	}
+}
+
+func rejectRequest(w http.ResponseWriter, r *http.Request) {
+	db, err := getDb()
+	defer db.Close()
+	handle(err)
+	// reject the request
+	fr := getRequestFromToken(w, r, db)
+	if fr != nil {
+		db.Model(&fr).Update("status", Rejected)
+		respond(w, http.StatusOK, "request declined")
+	}
 }

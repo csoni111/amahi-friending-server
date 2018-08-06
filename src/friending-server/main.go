@@ -25,6 +25,9 @@ func main() {
 	apiRouter.HandleFunc("/user/{id:[0-9]+}", removeFU).Methods("DELETE")
 	apiRouter.HandleFunc("/request/{id:[0-9]+}/resend", resendFR).Methods("PUT")
 
+	apiRouter.HandleFunc("/request/{token:[a-z0-9]{32}}/accept", acceptRequest).Methods("GET")
+	apiRouter.HandleFunc("/request/{token:[a-z0-9]{32}}/reject", rejectRequest).Methods("GET")
+
 	log.Printf("Starting server on %d", Port)
 	err := http.ListenAndServe(fmt.Sprintf(":%d", Port), router)
 	handle(err)
