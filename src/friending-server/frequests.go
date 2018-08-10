@@ -167,7 +167,8 @@ func resendFR(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 	handle(err)
 	fr := new(FriendRequest)
-	if db.Where("id = ? AND system_id = ?", reqId, system.ID).First(&fr).RecordNotFound() {
+	if db.Where("id = ? AND system_id = ?", reqId, system.ID).
+		Preload("AmahiUser").First(&fr).RecordNotFound() {
 		respond(w, http.StatusNotFound, "not found")
 	} else {
 		fr.InviteToken = tokenGenerator()
