@@ -49,7 +49,7 @@ func removeFU(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 	handle(err)
 	if rowsAffected := db.Debug().Where("amahi_user_id = ? AND system_id = ?", userId, system.ID).
-		Delete(&FriendRequest{}).RowsAffected;
+		Delete(&FriendUser{}).RowsAffected;
 		rowsAffected > 0 {
 		respond(w, http.StatusOK, "deleted")
 	} else {
